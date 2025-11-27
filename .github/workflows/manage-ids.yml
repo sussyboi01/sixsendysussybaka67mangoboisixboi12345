@@ -1,12 +1,20 @@
 name: Manage Allowed IDs
 
 on:
-  issues:
-    types: [opened]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'add or remove'
+        required: true
+      name:
+        description: 'Device nickname'
+        required: false
+      id:
+        description: 'Device ID'
+        required: false
 
 permissions:
   contents: write
-  issues: write
 
 jobs:
   update_ids:
@@ -16,65 +24,44 @@ jobs:
     - name: Checkout Repo
       uses: actions/checkout@v3
 
-    - name: Read Issue Info
-      id: issue
+    - name: Install jq
+      run: sudo apt-get update && sudo apt-get install -y jq
+
+    - name: Initialize JSON file
       run: |
-        echo "TITLE=${{ github.event.issue.title }}" >> $GITHUB_ENV
-        echo "BODY=${{ github.event.issue.body }}" >> $GITHUB_ENV
-
-    - name: Process Add or Remove
-      id: process
-      run: |
-        TITLE="${TITLE}"
-        BODY="${BODY}"
-
-        FILE="allowed_ids.json"
-
-        # If file doesn't exist, create empty object
+        FILE="allowed-ids.json"
         if [ ! -f "$FILE" ]; then
-          echo "{}" > "$FILE"
+          echo "[]" > "$FILE"
         fi
 
-        # =====================================
-        # Add ID
-        # =====================================
-        if [[ "$TITLE" == ADD-ID:* ]]; then
-          NAME="${TITLE#ADD-ID: }"
-          VALUE=$(echo "$BODY" | grep -oP '(?<=VALUE: ).*')
-
-          echo "Adding ID: $NAME = $VALUE"
-
-          jq --arg n "$NAME" --arg v "$VALUE" '.[$n]=$v' "$FILE" > tmp.json
-          mv tmp.json "$FILE"
-        fi
-
-        # =====================================
-        # Remove ID
-        # =====================================
-        if [[ "$TITLE" == REMOVE-ID:* ]]; then
-          NAME="${TITLE#REMOVE-ID: }"
-
-          echo "Removing ID: $NAME"
-
-          jq "del(.\"$NAME\")" "$FILE" > tmp.json
-          mv tmp.json "$FILE"
-        fi
-
-    - name: Commit Changes
+    - name: Update JSON
       run: |
-        git config user.name "github-actions"
-        git config user.email "github-actions@github.com"
-        git add allowed_ids.json
-        git commit -m "Updated allowed_ids.json" || echo "No changes to commit"
+        FILE="allowed-ids.json"
+        ACTION="${{ github.event.inputs.action }}"
+        NAME="${{ github.event.inputs.name }}"
+        ID="${{ github.event.inputs.id }}"
 
-    - name: Push
-      uses: ad-m/github-push-action@v0.8.0
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
+        if [ "$ACTION" = "add" ]; then
+          echo "Adding device: $NAME = $ID"
+          jq --arg name "$NAME" --arg id "$ID" '. += [{"name": $name, "id": $id}]' "$FILE" > tmp.json
+          mv tmp.json "$FILE"
+        elif [ "$ACTION" = "remove" ]; then
+          echo "Removing device with ID: $ID"
+          jq --arg id "$ID" 'map(select(.id != $id))' "$FILE" > tmp.json
+          mv tmp.json "$FILE"
+        else
+          echo "Unknown action: $ACTION"
+          exit 1
+        fi
 
-    - name: Close Issue
+    - name: Commit changes
       run: |
-        ISSUE_NUMBER=${{ github.event.issue.number }}
-        gh issue close "$ISSUE_NUMBER" -R "${{ github.repository }}"
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add allowed-ids.json
+        git commit -m "Update allowed-ids.json via workflow" || echo "No changes to commit"
+
+    - name: Push changes
+      run: git push
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
