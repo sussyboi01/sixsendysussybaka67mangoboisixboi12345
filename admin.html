@@ -54,7 +54,7 @@ const WORKER_URL = "https://hiboi.hexorod0.workers.dev";
 
 async function loadList() {
     try {
-        const res = await fetch(`${WORKER_URL}/devices`);
+        const res = await fetch(`${WORKER_URL}`);
         if (!res.ok) throw new Error("Failed to fetch device list");
         const data = await res.json();
         renderList(data);
@@ -85,7 +85,7 @@ async function addDevice() {
     if (!name || !id) return alert("Fill both fields!");
 
     try {
-        const res = await fetch(`${WORKER_URL}/devices`, {
+        const res = await fetch(`${WORKER_URL}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name, id })
@@ -103,7 +103,7 @@ async function addDevice() {
 async function removeDevice(id) {
     if (!confirm("Remove this device?")) return;
     try {
-        const res = await fetch(`${WORKER_URL}/devices`, {
+        const res = await fetch(`${WORKER_URL}`, {
             method: "DELETE",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id })
