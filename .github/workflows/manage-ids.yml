@@ -1,20 +1,12 @@
 name: Manage Allowed IDs
 
 on:
-  workflow_dispatch:
-    inputs:
-      action:
-        description: 'add or remove'
-        required: true
-      name:
-        description: 'Device nickname'
-        required: false
-      id:
-        description: 'Device ID'
-        required: false
+  issues:
+    types: [opened]
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   update_ids:
@@ -27,41 +19,41 @@ jobs:
     - name: Install jq
       run: sudo apt-get update && sudo apt-get install -y jq
 
-    - name: Initialize JSON file
+    - name: Initialize JSON
       run: |
         FILE="allowed-ids.json"
         if [ ! -f "$FILE" ]; then
           echo "[]" > "$FILE"
         fi
 
-    - name: Update JSON
+    - name: Process Issue
       run: |
         FILE="allowed-ids.json"
-        ACTION="${{ github.event.inputs.action }}"
-        NAME="${{ github.event.inputs.name }}"
-        ID="${{ github.event.inputs.id }}"
+        TITLE="${{ github.event.issue.title }}"
+        BODY="${{ github.event.issue.body }}"
 
-        if [ "$ACTION" = "add" ]; then
-          echo "Adding device: $NAME = $ID"
-          jq --arg name "$NAME" --arg id "$ID" '. += [{"name": $name, "id": $id}]' "$FILE" > tmp.json
+        if [[ "$TITLE" == ADD-ID:* ]]; then
+          NAME="${TITLE#ADD-ID: }"
+          ID=$(echo "$BODY" | grep -oP '(?<=ID: ).*')
+          jq --arg name "$NAME" --arg id "$ID" '. += [{"name": $name,"id": $id}]' "$FILE" > tmp.json
           mv tmp.json "$FILE"
-        elif [ "$ACTION" = "remove" ]; then
-          echo "Removing device with ID: $ID"
+        elif [[ "$TITLE" == REMOVE-ID:* ]]; then
+          ID=$(echo "$BODY" | grep -oP '(?<=ID: ).*')
           jq --arg id "$ID" 'map(select(.id != $id))' "$FILE" > tmp.json
           mv tmp.json "$FILE"
-        else
-          echo "Unknown action: $ACTION"
-          exit 1
         fi
 
-    - name: Commit changes
+    - name: Commit Changes
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git add allowed-ids.json
-        git commit -m "Update allowed-ids.json via workflow" || echo "No changes to commit"
+        git commit -m "Update allowed-ids.json via issue" || echo "No changes to commit"
 
-    - name: Push changes
+    - name: Push Changes
       run: git push
+
+    - name: Close Issue
+      run: gh issue close ${{ github.event.issue.number }} -R ${{ github.repository }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
