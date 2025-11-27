@@ -1,0 +1,80 @@
+name: Manage Allowed IDs
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  update_ids:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v3
+
+    - name: Read Issue Info
+      id: issue
+      run: |
+        echo "TITLE=${{ github.event.issue.title }}" >> $GITHUB_ENV
+        echo "BODY=${{ github.event.issue.body }}" >> $GITHUB_ENV
+
+    - name: Process Add or Remove
+      id: process
+      run: |
+        TITLE="${TITLE}"
+        BODY="${BODY}"
+
+        FILE="allowed_ids.json"
+
+        # If file doesn't exist, create empty object
+        if [ ! -f "$FILE" ]; then
+          echo "{}" > "$FILE"
+        fi
+
+        # =====================================
+        # Add ID
+        # =====================================
+        if [[ "$TITLE" == ADD-ID:* ]]; then
+          NAME="${TITLE#ADD-ID: }"
+          VALUE=$(echo "$BODY" | grep -oP '(?<=VALUE: ).*')
+
+          echo "Adding ID: $NAME = $VALUE"
+
+          jq --arg n "$NAME" --arg v "$VALUE" '.[$n]=$v' "$FILE" > tmp.json
+          mv tmp.json "$FILE"
+        fi
+
+        # =====================================
+        # Remove ID
+        # =====================================
+        if [[ "$TITLE" == REMOVE-ID:* ]]; then
+          NAME="${TITLE#REMOVE-ID: }"
+
+          echo "Removing ID: $NAME"
+
+          jq "del(.\"$NAME\")" "$FILE" > tmp.json
+          mv tmp.json "$FILE"
+        fi
+
+    - name: Commit Changes
+      run: |
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        git add allowed_ids.json
+        git commit -m "Updated allowed_ids.json" || echo "No changes to commit"
+
+    - name: Push
+      uses: ad-m/github-push-action@v0.8.0
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Close Issue
+      run: |
+        ISSUE_NUMBER=${{ github.event.issue.number }}
+        gh issue close "$ISSUE_NUMBER" -R "${{ github.repository }}"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
