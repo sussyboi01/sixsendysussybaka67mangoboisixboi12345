@@ -5,101 +5,160 @@
 <title>Allowed Device Manager</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-  body { 
-    margin:0; 
-    font-family:sans-serif; 
-    background:#14142b; 
-    color:white; 
-    overflow:hidden; 
-    display:flex; 
-    justify-content:center; 
-    align-items:flex-start; 
-    padding-top:50px;
-    min-height:100vh;
-  }
-  .sidebar { 
-    width:400px; 
-    background:#1a1a35; 
-    padding:30px 20px; 
-    display:flex; 
-    flex-direction:column; 
-    align-items:center; 
-    border-radius:12px;
-    border:2px solid #252550;
-    box-shadow:0 0 20px rgba(90,90,255,0.5);
-  }
-  .sidebar h1 { 
-    font-size:28px; 
-    margin-bottom:20px; 
-    text-shadow:0 0 15px #5a5aff; 
-    text-align:center;
-  }
-  .deviceItem {
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    background:#14142b;
-    padding:12px 15px;
-    border-radius:10px;
-    margin-bottom:10px;
-    border:1px solid #252550;
-    width:100%;
-  }
-  .deviceItem span { font-family:monospace; }
-  .removeBtn {
-    background:#ff4a4a;
-    border:none;
-    padding:6px 10px;
-    border-radius:8px;
-    cursor:pointer;
-    color:white;
-    font-size:13px;
-  }
-  .removeBtn:hover { background:#ff6b6b; }
-  #addBox { margin-top:20px; display:flex; flex-direction:column; gap:10px; width:100%; }
-  input, button { padding:12px; border-radius:10px; border:none; font-size:15px; width:100%; }
-  input { background:#0e0e24; color:white; border:1px solid #272755; }
-  #addBtn { background:#5a5aff; color:white; cursor:pointer; font-weight:bold; text-shadow:0 0 10px rgba(255,255,255,0.3); }
-  #addBtn:hover { background:#7878ff; }
+    body {
+        margin:0;
+        font-family:sans-serif;
+        background:#14142b;
+        color:white;
+        padding:20px;
+    }
+    h1 {
+        text-align:center;
+        font-size:30px;
+        text-shadow:0 0 15px #5a5aff;
+    }
+    #container {
+        max-width:700px;
+        margin:40px auto;
+        background:#1a1a35;
+        padding:25px;
+        border-radius:12px;
+        border:2px solid #252550;
+        box-shadow:0 0 20px rgba(90,90,255,0.5);
+        display:none; /* hidden until password is correct */
+    }
+    .deviceItem {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        background:#14142b;
+        padding:12px 15px;
+        border-radius:10px;
+        margin-bottom:10px;
+        border:1px solid #252550;
+    }
+    .deviceItem span {
+        font-family:monospace;
+    }
+    .removeBtn {
+        background:#ff4a4a;
+        border:none;
+        padding:6px 10px;
+        border-radius:8px;
+        cursor:pointer;
+        color:white;
+        font-size:13px;
+    }
+    .removeBtn:hover { background:#ff6b6b; }
+
+    #addBox {
+        margin-top:25px;
+        display:flex;
+        flex-direction:column;
+        gap:10px;
+    }
+    input, button {
+        padding:12px;
+        border-radius:10px;
+        border:none;
+        font-size:15px;
+    }
+    input {
+        background:#0e0e24;
+        color:white;
+        border:1px solid #272755;
+    }
+    #addBtn {
+        background:#5a5aff;
+        color:white;
+        cursor:pointer;
+        font-weight:bold;
+        text-shadow:0 0 10px rgba(255,255,255,0.3);
+    }
+    #addBtn:hover { background:#7878ff; }
+
+    #deny {
+        text-align:center;
+        margin-top:50px;
+        font-size:20px;
+        display:none;
+    }
 </style>
 </head>
+
 <body>
 
-<div class="sidebar">
-    <h1>Allowed Device Manager</h1>
+<h1>Allowed Device Manager</h1>
+
+<div id="deny">
+    ❌ Access Denied  
+    <br><br>
+    wrong password lil bro
+</div>
+
+<div id="container">
+    <h2>Allowed Devices</h2>
     <div id="list"></div>
+
     <div id="addBox">
-        <input id="nickInput" placeholder="Device nickname e.g. Evan's PC">
+        <input id="nickInput" placeholder="Device nickname (example: Evan's PC)">
         <input id="idInput" placeholder="Device ID (UUID)">
         <button id="addBtn">Add Device</button>
     </div>
 </div>
 
 <script>
-const WORKER_URL = './manage-ids.yml'; // same repo worker
-let allowedIDs = [];
+// -----------------------------
+// PASSWORD PROTECTION
+// -----------------------------
+const PASSWORD = "eaterevan123";
+const entered = prompt("Enter admin password:");
 
-// ----------------------
-// Fetch allowed IDs
-// ----------------------
+if (entered !== PASSWORD) {
+    document.getElementById("deny").style.display = "block";
+    throw new Error("Incorrect password — stopping script.");
+}
+
+// Show admin panel
+document.getElementById("container").style.display = "block";
+
+
+// -----------------------------
+// GITHUB REPO INFO
+// -----------------------------
+const OWNER = "sixsendysussybaka67mangoboisixboi12345";
+const REPO = "sixsendysussybaka67mangoboisixboi12345";
+const JSON_FILE = "allowed_ids.json";
+
+// Your worker is in .github/workflows/manage-ids.yml
+// We call it through GitHub API runs
+const WORKFLOW_FILE = "manage-ids.yml";
+
+
+// -----------------------------
+// LOAD LIST
+// -----------------------------
 async function loadList() {
+    const url = `https://raw.githubusercontent.com/${OWNER}/${REPO}/main/${JSON_FILE}?t=${Date.now()}`;
+
     try {
-        const res = await fetch(WORKER_URL);
-        const json = await res.json();
-        allowedIDs = json;
-        renderList();
-    } catch(e) {
-        alert('Failed to fetch allowed IDs from worker.');
-        console.error(e);
+        const res = await fetch(url);
+        const data = await res.json();
+        renderList(data);
+    } catch (err) {
+        alert("Failed to load allowed_ids.json");
+        console.error(err);
     }
 }
 
-function renderList() {
-    const list = document.getElementById('list');
-    list.innerHTML = '';
-    allowedIDs.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'deviceItem';
+function renderList(arr) {
+    const list = document.getElementById("list");
+    list.innerHTML = "";
+
+    arr.forEach(item => {
+        const div = document.createElement("div");
+        div.className = "deviceItem";
+
         div.innerHTML = `
             <div>
                 <b>${item.name}</b><br>
@@ -107,49 +166,78 @@ function renderList() {
             </div>
             <button class="removeBtn">X</button>
         `;
-        div.querySelector('button').onclick = () => removeID(item.id);
+
+        div.querySelector("button").onclick = () => removeId(item.id);
         list.appendChild(div);
     });
 }
 
-// ----------------------
-// Add / Remove IDs
-// ----------------------
-async function addID() {
-    const name = document.getElementById('nickInput').value.trim();
-    const id = document.getElementById('idInput').value.trim();
-    if(!name || !id) return alert('Fill both fields');
 
-    try {
-        await fetch(WORKER_URL, {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({action:'add', name, id})
-        });
-        alert('ID added!');
-        loadList();
-    } catch(e) { console.error(e); alert('Failed to add ID'); }
+// -----------------------------
+// ADD DEVICE (Triggers workflow)
+// -----------------------------
+async function addId() {
+    const name = document.getElementById("nickInput").value.trim();
+    const id = document.getElementById("idInput").value.trim();
+
+    if (!name || !id) {
+        alert("Fill both fields!");
+        return;
+    }
+
+    // Start workflow dispatch
+    await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
+        method: "POST",
+        headers: {
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            ref: "main",
+            inputs: {
+                action: "add",
+                name: name,
+                id: id
+            }
+        })
+    });
+
+    alert("ID added — give GitHub 5 seconds to update");
+    setTimeout(loadList, 5000);
 }
 
-async function removeID(id) {
-    try {
-        await fetch(WORKER_URL, {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({action:'remove', id})
-        });
-        alert('ID removed!');
-        loadList();
-    } catch(e) { console.error(e); alert('Failed to remove ID'); }
+document.getElementById("addBtn").onclick = addId;
+
+
+// -----------------------------
+// REMOVE DEVICE
+// -----------------------------
+async function removeId(id) {
+    await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches`, {
+        method: "POST",
+        headers: {
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            ref: "main",
+            inputs: {
+                action: "remove",
+                id: id
+            }
+        })
+    });
+
+    alert("ID removed — waiting for update");
+    setTimeout(loadList, 5000);
 }
 
-document.getElementById('addBtn').addEventListener('click', addID);
 
-// ----------------------
+// -----------------------------
 // INIT
-// ----------------------
+// -----------------------------
 loadList();
-</script>
 
+</script>
 </body>
 </html>
