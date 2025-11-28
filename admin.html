@@ -69,29 +69,22 @@ async function sendDeviceToWorker(name, id) {
 }
 
 // LOAD CURRENT DEVICES FROM WORKER
+// LOAD CURRENT DEVICES FROM GITHUB RAW
 async function loadList() {
-
-    const url = `https://raw.githubusercontent.com/sussyboi01/sixsendysussybaka67mangoboisixboi12345/refs/heads/main/allowed-ids.json?t=${Date.now()}`;
-
-
+    // Correct raw URL for GitHub main branch
+    const url = `https://raw.githubusercontent.com/sussyboi01/sixsendysussybaka67mangoboisixboi12345/main/allowed-ids.json?t=${Date.now()}`;
 
     try {
-
         const res = await fetch(url);
-
+        if (!res.ok) throw new Error(`GitHub returned ${res.status}`);
         const data = await res.json();
-
         renderList(data);
-
     } catch (err) {
-
-        alert("Failed to load allowed_ids.json");
-
-        console.error(err);
-
+        console.error("Failed to load allowed-ids.json:", err);
+        alert("Failed to load allowed devices. Try again later.");
     }
-
 }
+
 
 
 // RENDER DEVICE LIST
