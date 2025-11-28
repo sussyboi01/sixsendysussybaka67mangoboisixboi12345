@@ -18,11 +18,28 @@ input { background:#0e0e24; color:white; border:1px solid #272755; }
 #addBtn { background:#5a5aff; color:white; cursor:pointer; font-weight:bold; text-shadow:0 0 10px rgba(255,255,255,0.3); }
 #addBtn:hover { background:#7878ff; }
 #deny { text-align:center; margin-top:50px; font-size:20px; display:none; }
+#message { text-align:center; margin-bottom:15px; font-weight:bold; }
+.modal-bg {
+    position: fixed; top:0; left:0; right:0; bottom:0;
+    background: rgba(20,20,43,0.85); display:flex; align-items:center; justify-content:center; z-index:1000;
+}
+.modal-box {
+    background:#1a1a35; border:2px solid #252550; border-radius:12px;
+    padding:25px; max-width:400px; width:90%; box-shadow:0 0 20px rgba(90,90,255,0.5);
+    color:white; font-family:sans-serif; text-align:center;
+}
+.modal-btn { margin:10px 5px 0 5px; padding:10px 15px; border-radius:8px; border:none; cursor:pointer; font-weight:bold; }
+.modal-btn.ok { background:#5a5aff; color:white; }
+.modal-btn.ok:hover { background:#7878ff; }
+.modal-btn.cancel { background:#ff4a4a; color:white; }
+.modal-btn.cancel:hover { background:#ff6b6b; }
+.modal-input { width:90%; padding:10px; margin-top:15px; border-radius:8px; border:1px solid #272755; background:#0e0e24; color:white; }
 </style>
 </head>
 <body>
 
 <h1>Allowed Device Manager</h1>
+<div id="message"></div>
 
 <div id="deny">
     ❌ Access Denied  
@@ -42,113 +59,135 @@ input { background:#0e0e24; color:white; border:1px solid #272755; }
 </div>
 
 <script>
-const PASSWORD = "asdqwe";
+const PASSWORD = "eaterevan123";
 const WORKER_URL = "https://hiboi.hexorod0.workers.dev";
-
 const listElement = document.getElementById("list");
 const messageEl = document.getElementById("message");
-let devices = []; // in-memory copy of devices
+let devices = [];
 
-// PASSWORD CHECK
-const entered = prompt("Enter admin password:");
-if (entered !== PASSWORD) {
-    document.getElementById("deny").style.display = "block";
-    throw new Error("Incorrect password — stopping script.");
+// Custom Modals
+function customAlert(message) {
+    return new Promise(resolve => {
+        const bg = document.createElement("div"); bg.className="modal-bg";
+        const box = document.createElement("div"); box.className="modal-box";
+        box.innerHTML = `<p>${message}</p>`;
+        const okBtn = document.createElement("button"); okBtn.className="modal-btn ok"; okBtn.textContent="OK";
+        okBtn.onclick = ()=>{document.body.removeChild(bg); resolve();};
+        box.appendChild(okBtn); bg.appendChild(box); document.body.appendChild(bg);
+    });
 }
-document.getElementById("container").style.display = "block";
-
-// SHOW TEMP MESSAGES
-function showMessage(msg, success = true) {
-    messageEl.textContent = msg;
-    messageEl.style.color = success ? "#5aff5a" : "#ff4a4a";
-    setTimeout(() => { messageEl.textContent = ""; }, 3000);
+function customConfirm(message) {
+    return new Promise(resolve => {
+        const bg = document.createElement("div"); bg.className="modal-bg";
+        const box = document.createElement("div"); box.className="modal-box";
+        box.innerHTML = `<p>${message}</p>`;
+        const okBtn = document.createElement("button"); okBtn.className="modal-btn ok"; okBtn.textContent="Yes";
+        okBtn.onclick = ()=>{document.body.removeChild(bg); resolve(true);};
+        const cancelBtn = document.createElement("button"); cancelBtn.className="modal-btn cancel"; cancelBtn.textContent="No";
+        cancelBtn.onclick = ()=>{document.body.removeChild(bg); resolve(false);};
+        box.appendChild(okBtn); box.appendChild(cancelBtn); bg.appendChild(box); document.body.appendChild(bg);
+    });
 }
-
-// SEND DEVICE TO CLOUD WORKER
-async function sendDeviceToWorker(name, id, action = "ADD") {
-    try {
-        const res = await fetch(`${WORKER_URL}/update-device`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, id, action })
-        });
-        const data = await res.json();
-        if (data.success) {
-            showMessage(`${action} successful for "${name}"`, true);
-            return true;
-        } else {
-            showMessage(`${action} failed for "${name}"`, false);
-            console.error("Worker response error:", data);
-            return false;
-        }
-    } catch (err) {
-        showMessage(`${action} failed for "${name}"`, false);
-        console.error("Failed to send device info to worker:", err);
-        return false;
-    }
-}
-
-// RENDER DEVICE LIST
-function renderList() {
-    listElement.innerHTML = devices.length === 0 ? "<i>No devices added yet</i>" : "";
-    devices.forEach(d => {
-        const div = document.createElement("div");
-        div.className = "deviceItem";
-
-        const nameSpan = document.createElement("div");
-        nameSpan.innerHTML = `<b>${d.name}</b><br><span>${d.id}</span>`;
-
-        const removeBtn = document.createElement("button");
-        removeBtn.className = "removeBtn";
-        removeBtn.textContent = "Remove";
-        removeBtn.onclick = async () => {
-            if (!confirm(`Remove device "${d.name}"?`)) return;
-            const success = await sendDeviceToWorker(d.name, d.id, "REMOVE");
-            if (success) {
-                devices = devices.filter(dev => dev.id !== d.id);
-                renderList();
-            }
-        };
-
-        div.appendChild(nameSpan);
-        div.appendChild(removeBtn);
-        listElement.appendChild(div);
+function customPrompt(message, placeholder="") {
+    return new Promise(resolve => {
+        const bg = document.createElement("div"); bg.className="modal-bg";
+        const box = document.createElement("div"); box.className="modal-box";
+        box.innerHTML = `<p>${message}</p>`;
+        const input = document.createElement("input"); input.className="modal-input"; input.placeholder=placeholder;
+        const okBtn = document.createElement("button"); okBtn.className="modal-btn ok"; okBtn.textContent="OK";
+        okBtn.onclick = ()=>{document.body.removeChild(bg); resolve(input.value);};
+        const cancelBtn = document.createElement("button"); cancelBtn.className="modal-btn cancel"; cancelBtn.textContent="Cancel";
+        cancelBtn.onclick = ()=>{document.body.removeChild(bg); resolve(null);};
+        box.appendChild(input); box.appendChild(okBtn); box.appendChild(cancelBtn); bg.appendChild(box); document.body.appendChild(bg);
+        input.focus();
     });
 }
 
-// LOAD CURRENT DEVICES FROM GITHUB RAW
-async function loadList() {
-    const url = `https://raw.githubusercontent.com/sussyboi01/sixsendysussybaka67mangoboisixboi12345/main/allowed-ids.json?t=${Date.now()}`;
-    listElement.innerHTML = "<i>Loading devices…</i>";
-    try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`GitHub returned ${res.status}`);
-        devices = await res.json();
+// Show messages above list
+function showMessage(msg, success=true) {
+    messageEl.textContent = msg;
+    messageEl.style.color = success ? "#5aff5a" : "#ff4a4a";
+    setTimeout(()=>{messageEl.textContent="";},3000);
+}
+
+// PASSWORD CHECK
+(async ()=>{
+    const entered = await customPrompt("Enter admin password:");
+    if(entered!==PASSWORD){
+        document.getElementById("deny").style.display="block";
+        await customAlert("Incorrect password — stopping script.");
+        throw new Error("Incorrect password");
+    }
+    document.getElementById("container").style.display="block";
+    loadList();
+})();
+
+// Render device list
+function renderList(){
+    listElement.innerHTML = devices.length===0 ? "<i>No devices added yet</i>" : "";
+    devices.forEach(d=>{
+        const div=document.createElement("div"); div.className="deviceItem";
+        const nameSpan=document.createElement("div"); nameSpan.innerHTML=`<b>${d.name}</b><br><span>${d.id}</span>`;
+        const removeBtn=document.createElement("button"); removeBtn.className="removeBtn"; removeBtn.textContent="Remove";
+        removeBtn.onclick=async ()=>{
+            const confirmResult = await customConfirm(`Remove device "${d.name}"?`);
+            if(!confirmResult) return;
+            devices = devices.filter(dev=>dev.id!==d.id);
+            renderList();
+            showMessage(`Removing "${d.name}"...`,true);
+            try{
+                await fetch(`${WORKER_URL}/update-device`,{
+                    method:"POST",
+                    headers:{"Content-Type":"application/json"},
+                    body:JSON.stringify({name:d.name,id:d.id,action:"REMOVE"})
+                });
+                showMessage(`Removed "${d.name}" successfully`,true);
+            }catch(err){
+                showMessage(`Failed to remove "${d.name}"`,false);
+                console.error(err);
+            }
+        };
+        div.appendChild(nameSpan); div.appendChild(removeBtn); listElement.appendChild(div);
+    });
+}
+
+// Load list from GitHub
+async function loadList(){
+    const url=`https://raw.githubusercontent.com/sussyboi01/sixsendysussybaka67mangoboisixboi12345/main/allowed-ids.json?t=${Date.now()}`;
+    listElement.innerHTML="<i>Loading devices…</i>";
+    try{
+        const res=await fetch(url);
+        if(!res.ok) throw new Error(`GitHub returned ${res.status}`);
+        devices=await res.json();
         renderList();
-    } catch (err) {
-        console.error("Failed to load allowed-ids.json:", err);
-        listElement.innerHTML = "<i>Failed to load devices.</i>";
+    }catch(err){
+        console.error("Failed to load allowed-ids.json:",err);
+        listElement.innerHTML="<i>Failed to load devices.</i>";
     }
 }
 
-// HANDLE ADD DEVICE BUTTON
-document.getElementById("addBtn").onclick = async () => {
-    const name = document.getElementById("nickInput").value.trim();
-    const id = document.getElementById("idInput").value.trim();
-    if (!name || !id) return alert("Fill both fields!");
-
-    const success = await sendDeviceToWorker(name, id, "ADD");
-    if (success) {
-        devices.push({ name, id });
-        renderList();
+// Handle add button
+document.getElementById("addBtn").onclick=async ()=>{
+    const name=document.getElementById("nickInput").value.trim();
+    const id=document.getElementById("idInput").value.trim();
+    if(!name || !id) return customAlert("Fill both fields!");
+    devices.push({name,id});
+    renderList();
+    showMessage(`Adding "${name}"...`,true);
+    try{
+        await fetch(`${WORKER_URL}/update-device`,{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({name,id,action:"ADD"})
+        });
+        showMessage(`Added "${name}" successfully`,true);
+    }catch(err){
+        showMessage(`Failed to add "${name}"`,false);
+        console.error(err);
     }
-
-    document.getElementById("nickInput").value = "";
-    document.getElementById("idInput").value = "";
+    document.getElementById("nickInput").value="";
+    document.getElementById("idInput").value="";
 };
-
-// INITIAL LOAD
-loadList();
 </script>
 </body>
 </html>
