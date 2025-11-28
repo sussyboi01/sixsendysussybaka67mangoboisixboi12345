@@ -46,7 +46,8 @@ const PASSWORD = "asdqwe";
 const WORKER_URL = "https://hiboi.hexorod0.workers.dev";
 
 const listElement = document.getElementById("list");
-let devices = []; // local in-memory copy of devices
+const messageEl = document.getElementById("message");
+let devices = []; // in-memory copy of devices
 
 // PASSWORD CHECK
 const entered = prompt("Enter admin password:");
@@ -58,12 +59,9 @@ document.getElementById("container").style.display = "block";
 
 // SHOW TEMP MESSAGES
 function showMessage(msg, success = true) {
-    const div = document.createElement("div");
-    div.textContent = msg;
-    div.style.color = success ? "#5aff5a" : "#ff4a4a";
-    div.style.marginBottom = "10px";
-    listElement.prepend(div);
-    setTimeout(() => div.remove(), 3000);
+    messageEl.textContent = msg;
+    messageEl.style.color = success ? "#5aff5a" : "#ff4a4a";
+    setTimeout(() => { messageEl.textContent = ""; }, 3000);
 }
 
 // SEND DEVICE TO CLOUD WORKER
@@ -76,7 +74,7 @@ async function sendDeviceToWorker(name, id, action = "ADD") {
         });
         const data = await res.json();
         if (data.success) {
-            showMessage(`${action} successful for "${name}"`);
+            showMessage(`${action} successful for "${name}"`, true);
             return true;
         } else {
             showMessage(`${action} failed for "${name}"`, false);
@@ -87,21 +85,6 @@ async function sendDeviceToWorker(name, id, action = "ADD") {
         showMessage(`${action} failed for "${name}"`, false);
         console.error("Failed to send device info to worker:", err);
         return false;
-    }
-}
-
-// LOAD CURRENT DEVICES FROM GITHUB RAW
-async function loadList() {
-    const url = `https://raw.githubusercontent.com/sussyboi01/sixsendysussybaka67mangoboisixboi12345/main/allowed-ids.json?t=${Date.now()}`;
-    listElement.innerHTML = "<i>Loading devices…</i>";
-    try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`GitHub returned ${res.status}`);
-        devices = await res.json();
-        renderList();
-    } catch (err) {
-        console.error("Failed to load allowed-ids.json:", err);
-        listElement.innerHTML = "<i>Failed to load devices.</i>";
     }
 }
 
@@ -122,7 +105,6 @@ function renderList() {
             if (!confirm(`Remove device "${d.name}"?`)) return;
             const success = await sendDeviceToWorker(d.name, d.id, "REMOVE");
             if (success) {
-                // Remove from local array and re-render instantly
                 devices = devices.filter(dev => dev.id !== d.id);
                 renderList();
             }
@@ -134,6 +116,21 @@ function renderList() {
     });
 }
 
+// LOAD CURRENT DEVICES FROM GITHUB RAW
+async function loadList() {
+    const url = `https://raw.githubusercontent.com/sussyboi01/sixsendysussybaka67mangoboisixboi12345/main/allowed-ids.json?t=${Date.now()}`;
+    listElement.innerHTML = "<i>Loading devices…</i>";
+    try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`GitHub returned ${res.status}`);
+        devices = await res.json();
+        renderList();
+    } catch (err) {
+        console.error("Failed to load allowed-ids.json:", err);
+        listElement.innerHTML = "<i>Failed to load devices.</i>";
+    }
+}
+
 // HANDLE ADD DEVICE BUTTON
 document.getElementById("addBtn").onclick = async () => {
     const name = document.getElementById("nickInput").value.trim();
@@ -142,7 +139,6 @@ document.getElementById("addBtn").onclick = async () => {
 
     const success = await sendDeviceToWorker(name, id, "ADD");
     if (success) {
-        // Add to local array and render instantly
         devices.push({ name, id });
         renderList();
     }
