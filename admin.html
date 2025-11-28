@@ -42,8 +42,11 @@ input { background:#0e0e24; color:white; border:1px solid #272755; }
 </div>
 
 <script>
-const PASSWORD = "eaterevan123";
+const PASSWORD = "asdqwe";
 const WORKER_URL = "https://hiboi.hexorod0.workers.dev";
+
+const listElement = document.getElementById("list");
+let devices = []; // local in-memory copy of devices
 
 // PASSWORD CHECK
 const entered = prompt("Enter admin password:");
@@ -52,6 +55,16 @@ if (entered !== PASSWORD) {
     throw new Error("Incorrect password — stopping script.");
 }
 document.getElementById("container").style.display = "block";
+
+// SHOW TEMP MESSAGES
+function showMessage(msg, success = true) {
+    const div = document.createElement("div");
+    div.textContent = msg;
+    div.style.color = success ? "#5aff5a" : "#ff4a4a";
+    div.style.marginBottom = "10px";
+    listElement.prepend(div);
+    setTimeout(() => div.remove(), 3000);
+}
 
 // SEND DEVICE TO CLOUD WORKER
 async function sendDeviceToWorker(name, id, action = "ADD") {
@@ -62,35 +75,39 @@ async function sendDeviceToWorker(name, id, action = "ADD") {
             body: JSON.stringify({ name, id, action })
         });
         const data = await res.json();
-        console.log("Worker response:", data);
+        if (data.success) {
+            showMessage(`${action} successful for "${name}"`);
+            return true;
+        } else {
+            showMessage(`${action} failed for "${name}"`, false);
+            console.error("Worker response error:", data);
+            return false;
+        }
     } catch (err) {
+        showMessage(`${action} failed for "${name}"`, false);
         console.error("Failed to send device info to worker:", err);
+        return false;
     }
 }
 
 // LOAD CURRENT DEVICES FROM GITHUB RAW
 async function loadList() {
     const url = `https://raw.githubusercontent.com/sussyboi01/sixsendysussybaka67mangoboisixboi12345/main/allowed-ids.json?t=${Date.now()}`;
-
-    const list = document.getElementById("list");
-    list.innerHTML = "<i>Loading devices…</i>";
-
+    listElement.innerHTML = "<i>Loading devices…</i>";
     try {
         const res = await fetch(url);
         if (!res.ok) throw new Error(`GitHub returned ${res.status}`);
-        const data = await res.json();
-        renderList(data);
+        devices = await res.json();
+        renderList();
     } catch (err) {
         console.error("Failed to load allowed-ids.json:", err);
-        list.innerHTML = "<i>Failed to load devices.</i>";
+        listElement.innerHTML = "<i>Failed to load devices.</i>";
     }
 }
 
-// RENDER DEVICE LIST WITH REMOVE BUTTONS
-function renderList(devices) {
-    const list = document.getElementById("list");
-    list.innerHTML = devices.length === 0 ? "<i>No devices added yet</i>" : "";
-
+// RENDER DEVICE LIST
+function renderList() {
+    listElement.innerHTML = devices.length === 0 ? "<i>No devices added yet</i>" : "";
     devices.forEach(d => {
         const div = document.createElement("div");
         div.className = "deviceItem";
@@ -103,14 +120,17 @@ function renderList(devices) {
         removeBtn.textContent = "Remove";
         removeBtn.onclick = async () => {
             if (!confirm(`Remove device "${d.name}"?`)) return;
-            await sendDeviceToWorker(d.name, d.id, "REMOVE");
-            // Wait a few seconds to let GitHub Actions commit changes
-            setTimeout(loadList, 3000);
+            const success = await sendDeviceToWorker(d.name, d.id, "REMOVE");
+            if (success) {
+                // Remove from local array and re-render instantly
+                devices = devices.filter(dev => dev.id !== d.id);
+                renderList();
+            }
         };
 
         div.appendChild(nameSpan);
         div.appendChild(removeBtn);
-        list.appendChild(div);
+        listElement.appendChild(div);
     });
 }
 
@@ -120,8 +140,12 @@ document.getElementById("addBtn").onclick = async () => {
     const id = document.getElementById("idInput").value.trim();
     if (!name || !id) return alert("Fill both fields!");
 
-    await sendDeviceToWorker(name, id, "ADD");
-    setTimeout(loadList, 3000); // refresh list after a short delay
+    const success = await sendDeviceToWorker(name, id, "ADD");
+    if (success) {
+        // Add to local array and render instantly
+        devices.push({ name, id });
+        renderList();
+    }
 
     document.getElementById("nickInput").value = "";
     document.getElementById("idInput").value = "";
