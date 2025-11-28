@@ -70,17 +70,27 @@ async function sendDeviceToWorker(name, id) {
 
 // LOAD CURRENT DEVICES FROM WORKER
 async function loadList() {
+
+    const url = `https://raw.githubusercontent.com/sussyboi01/sixsendysussybaka67mangoboisixboi12345/refs/heads/main/allowed-ids.json?t=${Date.now()}`;
+
+
+
     try {
-        // Fetch the actual JSON file
-        const res = await fetch('allowed_ids.json'); // path to your JSON
-        if (!res.ok) throw new Error("Failed to load JSON");
-        const devices = await res.json();
-        renderList(devices);
+
+        const res = await fetch(url);
+
+        const data = await res.json();
+
+        renderList(data);
+
     } catch (err) {
-        console.error("Failed to load device list:", err);
-        const list = document.getElementById("list");
-        list.innerHTML = "<i>Could not load allowed devices</i>";
+
+        alert("Failed to load allowed_ids.json");
+
+        console.error(err);
+
     }
+
 }
 
 
