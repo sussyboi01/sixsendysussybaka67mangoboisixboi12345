@@ -54,25 +54,26 @@ if (entered !== PASSWORD) {
 document.getElementById("container").style.display = "block";
 
 // SEND DEVICE TO CLOUD WORKER
-async function sendDeviceToWorker(name, id) {
+async function sendDeviceToWorker(name, id, action = "ADD") {
     try {
-        const res = await fetch(`${WORKER_URL}/start-github`, {
+        const res = await fetch(`${WORKER_URL}/update-device`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, id })
+            body: JSON.stringify({ name, id, action })
         });
-        const text = await res.text();
-        console.log("Worker response:", text);
+        const data = await res.json();
+        console.log("Worker response:", data);
     } catch (err) {
         console.error("Failed to send device info to worker:", err);
     }
 }
 
-// LOAD CURRENT DEVICES FROM WORKER
 // LOAD CURRENT DEVICES FROM GITHUB RAW
 async function loadList() {
-    // Correct raw URL for GitHub main branch
     const url = `https://raw.githubusercontent.com/sussyboi01/sixsendysussybaka67mangoboisixboi12345/main/allowed-ids.json?t=${Date.now()}`;
+
+    const list = document.getElementById("list");
+    list.innerHTML = "<i>Loading devices…</i>";
 
     try {
         const res = await fetch(url);
@@ -81,22 +82,34 @@ async function loadList() {
         renderList(data);
     } catch (err) {
         console.error("Failed to load allowed-ids.json:", err);
-        alert("Failed to load allowed devices. Try again later.");
+        list.innerHTML = "<i>Failed to load devices.</i>";
     }
 }
 
-
-
-// RENDER DEVICE LIST
+// RENDER DEVICE LIST WITH REMOVE BUTTONS
 function renderList(devices) {
     const list = document.getElementById("list");
     list.innerHTML = devices.length === 0 ? "<i>No devices added yet</i>" : "";
+
     devices.forEach(d => {
         const div = document.createElement("div");
         div.className = "deviceItem";
-        div.innerHTML = `
-            <div><b>${d.name}</b><br><span>${d.id}</span></div>
-        `;
+
+        const nameSpan = document.createElement("div");
+        nameSpan.innerHTML = `<b>${d.name}</b><br><span>${d.id}</span>`;
+
+        const removeBtn = document.createElement("button");
+        removeBtn.className = "removeBtn";
+        removeBtn.textContent = "Remove";
+        removeBtn.onclick = async () => {
+            if (!confirm(`Remove device "${d.name}"?`)) return;
+            await sendDeviceToWorker(d.name, d.id, "REMOVE");
+            // Wait a few seconds to let GitHub Actions commit changes
+            setTimeout(loadList, 3000);
+        };
+
+        div.appendChild(nameSpan);
+        div.appendChild(removeBtn);
         list.appendChild(div);
     });
 }
@@ -107,18 +120,14 @@ document.getElementById("addBtn").onclick = async () => {
     const id = document.getElementById("idInput").value.trim();
     if (!name || !id) return alert("Fill both fields!");
 
-    // Send device info to Cloudflare Worker → triggers GitHub workflow
-    await sendDeviceToWorker(name, id);
+    await sendDeviceToWorker(name, id, "ADD");
+    setTimeout(loadList, 3000); // refresh list after a short delay
 
-    // Optionally, refresh the device list from worker
-    await loadList();
-
-    // Clear input fields
     document.getElementById("nickInput").value = "";
     document.getElementById("idInput").value = "";
 };
 
-// INITIAL LOAD OF DEVICE LIST
+// INITIAL LOAD
 loadList();
 </script>
 </body>
