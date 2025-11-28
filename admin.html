@@ -43,6 +43,8 @@ input { background:#0e0e24; color:white; border:1px solid #272755; }
 
 <script>
 const PASSWORD = "eaterevan123";
+
+// PASSWORD CHECK
 const entered = prompt("Enter admin password:");
 if (entered !== PASSWORD) {
     document.getElementById("deny").style.display = "block";
@@ -50,9 +52,10 @@ if (entered !== PASSWORD) {
 }
 document.getElementById("container").style.display = "block";
 
+// YOUR WORKER URL
 const WORKER_URL = "https://hiboi.hexorod0.workers.dev";
 
-// Send device info to Cloudflare worker to trigger GitHub workflow
+// SEND DEVICE TO CLOUD WORKER
 async function sendDeviceToWorker(name, id) {
     try {
         const res = await fetch(`${WORKER_URL}/start-github`, {
@@ -61,22 +64,29 @@ async function sendDeviceToWorker(name, id) {
             body: JSON.stringify({ name, id })
         });
         const text = await res.text();
-        console.log(text);
+        console.log("Worker response:", text);
     } catch (err) {
         console.error("Failed to send device info to worker:", err);
     }
 }
 
-// Handle adding a device
+// HANDLE ADD DEVICE BUTTON
 document.getElementById("addBtn").onclick = async () => {
     const name = document.getElementById("nickInput").value.trim();
     const id = document.getElementById("idInput").value.trim();
     if (!name || !id) return alert("Fill both fields!");
 
-    // send to Cloudflare worker
+    // Send device info to Cloudflare Worker → triggers GitHub workflow
     await sendDeviceToWorker(name, id);
 
-    // Clear inputs
+    // Optionally, update the list visually (local)
+    const list = document.getElementById("list");
+    const div = document.createElement("div");
+    div.className = "deviceItem";
+    div.innerHTML = `<div><b>${name}</b><br><span>${id}</span></div>`;
+    list.appendChild(div);
+
+    // Clear input fields
     document.getElementById("nickInput").value = "";
     document.getElementById("idInput").value = "";
 };
