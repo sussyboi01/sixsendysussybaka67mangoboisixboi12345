@@ -43,6 +43,7 @@ input { background:#0e0e24; color:white; border:1px solid #272755; }
 
 <script>
 const PASSWORD = "eaterevan123";
+const WORKER_URL = "https://hiboi.hexorod0.workers.dev";
 
 // PASSWORD CHECK
 const entered = prompt("Enter admin password:");
@@ -51,9 +52,6 @@ if (entered !== PASSWORD) {
     throw new Error("Incorrect password — stopping script.");
 }
 document.getElementById("container").style.display = "block";
-
-// YOUR WORKER URL
-const WORKER_URL = "https://hiboi.hexorod0.workers.dev";
 
 // SEND DEVICE TO CLOUD WORKER
 async function sendDeviceToWorker(name, id) {
@@ -70,6 +68,36 @@ async function sendDeviceToWorker(name, id) {
     }
 }
 
+// LOAD CURRENT DEVICES FROM WORKER
+async function loadList() {
+    try {
+        // Fetch the actual JSON file
+        const res = await fetch('allowed_ids.json'); // path to your JSON
+        if (!res.ok) throw new Error("Failed to load JSON");
+        const devices = await res.json();
+        renderList(devices);
+    } catch (err) {
+        console.error("Failed to load device list:", err);
+        const list = document.getElementById("list");
+        list.innerHTML = "<i>Could not load allowed devices</i>";
+    }
+}
+
+
+// RENDER DEVICE LIST
+function renderList(devices) {
+    const list = document.getElementById("list");
+    list.innerHTML = devices.length === 0 ? "<i>No devices added yet</i>" : "";
+    devices.forEach(d => {
+        const div = document.createElement("div");
+        div.className = "deviceItem";
+        div.innerHTML = `
+            <div><b>${d.name}</b><br><span>${d.id}</span></div>
+        `;
+        list.appendChild(div);
+    });
+}
+
 // HANDLE ADD DEVICE BUTTON
 document.getElementById("addBtn").onclick = async () => {
     const name = document.getElementById("nickInput").value.trim();
@@ -79,17 +107,16 @@ document.getElementById("addBtn").onclick = async () => {
     // Send device info to Cloudflare Worker → triggers GitHub workflow
     await sendDeviceToWorker(name, id);
 
-    // Optionally, update the list visually (local)
-    const list = document.getElementById("list");
-    const div = document.createElement("div");
-    div.className = "deviceItem";
-    div.innerHTML = `<div><b>${name}</b><br><span>${id}</span></div>`;
-    list.appendChild(div);
+    // Optionally, refresh the device list from worker
+    await loadList();
 
     // Clear input fields
     document.getElementById("nickInput").value = "";
     document.getElementById("idInput").value = "";
 };
+
+// INITIAL LOAD OF DEVICE LIST
+loadList();
 </script>
 </body>
 </html>
