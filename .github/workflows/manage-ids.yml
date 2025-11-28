@@ -1,59 +1,59 @@
 name: Manage Allowed IDs
 
+# Triggered by repository_dispatch (from Cloudflare Worker)
 on:
-  issues:
-    types: [opened]
+  repository_dispatch:
+    types: [start-task] # matches worker event_type
 
 permissions:
-  contents: write
-  issues: write
+  contents: write  # needed to update allowed-ids.json
 
 jobs:
   update_ids:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repo
-      uses: actions/checkout@v3
+      # Checkout the repo so we can edit the JSON
+      - name: Checkout Repo
+        uses: actions/checkout@v3
 
-    - name: Install jq
-      run: sudo apt-get update && sudo apt-get install -y jq
+      # Install jq for JSON editing
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
-    - name: Initialize JSON
-      run: |
-        FILE="allowed-ids.json"
-        if [ ! -f "$FILE" ]; then
-          echo "[]" > "$FILE"
-        fi
+      # Ensure allowed-ids.json exists
+      - name: Initialize JSON
+        run: |
+          FILE="allowed-ids.json"
+          if [ ! -f "$FILE" ]; then
+            echo "[]" > "$FILE"
+          fi
 
-    - name: Process Issue
-      run: |
-        FILE="allowed-ids.json"
-        TITLE="${{ github.event.issue.title }}"
-        BODY="${{ github.event.issue.body }}"
+      # Update allowed-ids.json based on worker payload
+      - name: Process Payload
+        run: |
+          FILE="allowed-ids.json"
+          NAME="${{ github.event.client_payload.name }}"
+          ID="${{ github.event.client_payload.id }}"
+          ACTION="${{ github.event.client_payload.action }}"
 
-        if [[ "$TITLE" == ADD-ID:* ]]; then
-          NAME="${TITLE#ADD-ID: }"
-          ID=$(echo "$BODY" | grep -oP '(?<=ID: ).*')
-          jq --arg name "$NAME" --arg id "$ID" '. += [{"name": $name,"id": $id}]' "$FILE" > tmp.json
-          mv tmp.json "$FILE"
-        elif [[ "$TITLE" == REMOVE-ID:* ]]; then
-          ID=$(echo "$BODY" | grep -oP '(?<=ID: ).*')
-          jq --arg id "$ID" 'map(select(.id != $id))' "$FILE" > tmp.json
-          mv tmp.json "$FILE"
-        fi
+          if [[ "$ACTION" == "ADD" ]]; then
+            # Add new entry if it doesn't already exist
+            jq --arg name "$NAME" --arg id "$ID" 'if any(.[]; .id == $id) then . else . + [{"name": $name, "id": $id}] end' "$FILE" > tmp.json
+            mv tmp.json "$FILE"
+          elif [[ "$ACTION" == "REMOVE" ]]; then
+            # Remove entry by ID
+            jq --arg id "$ID" 'map(select(.id != $id))' "$FILE" > tmp.json
+            mv tmp.json "$FILE"
+          else
+            echo "Unknown action: $ACTION"
+          fi
 
-    - name: Commit Changes
-      run: |
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add allowed-ids.json
-        git commit -m "Update allowed-ids.json via issue" || echo "No changes to commit"
-
-    - name: Push Changes
-      run: git push
-
-    - name: Close Issue
-      run: gh issue close ${{ github.event.issue.number }} -R ${{ github.repository }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Commit and push changes
+      - name: Commit Changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add allowed-ids.json
+          git commit -m "Update allowed-ids.json via repository_dispatch" || echo "No changes to commit"
+          git push
