@@ -1,28 +1,43 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<style>
-  /* Remove default page margins so there are no white gaps */
-  body {
-    margin: 0;
-    padding: 0;
-    overflow: hidden; /* Optional: prevents scrolling on the main page */
-  }
+  <meta charset="UTF-8">
+  <title>Fullscreen Embed</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  #fullscreen-iframe {
-    position: fixed; /* Stays in place even if you scroll */
-    top: 0;
-    left: 0;
-    width: 100vw;  /* 100% of the viewport width */
-    height: 100vh; /* 100% of the viewport height */
-    z-index: 9999; /* Ensures it sits on top of other content */
-    border: none;
-  }
-</style>
+  <!-- Security Headers (Browser-level only) -->
+  <meta http-equiv="Content-Security-Policy" 
+        content="default-src 'self'; frame-src https://mature-susy-daboisussyboi-9923fc5f.koyeb.app; object-src 'none'; base-uri 'self';">
+
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Permissions-Policy" content="geolocation=(), camera=(), microphone=()">
+
+  <style>
+    /* Remove default page margins */
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    #fullscreen-iframe {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      border: none;
+      z-index: 9999;
+    }
+  </style>
 </head>
+
 <body>
-
-  <iframe src="https://mature-susy-daboisussyboi-9923fc5f.koyeb.app/" id="fullscreen-iframe"></iframe>
-
+  <iframe 
+    src="https://mature-susy-daboisussyboi-9923fc5f.koyeb.app/" 
+    id="fullscreen-iframe"
+    allowfullscreen>
+  </iframe>
 </body>
 </html>
